@@ -56,11 +56,16 @@ export function useEditor({ user, onNeedAuth }) {
       toast.error('Sign in to save code');
       return;
     }
+    
+    const defaultName = LANG_FILE_NAMES[language] || 'code.txt';
+    const fileName = window.prompt("Enter a name for this file:", defaultName);
+    if (!fileName) return; // User cancelled
+
     try {
       await addDoc(collection(db, 'users', user.uid, 'savedCode'), {
         code,
         language,
-        name: LANG_FILE_NAMES[language] || 'code.txt',
+        name: fileName,
         createdAt: serverTimestamp(),
       });
       toast.success('Code saved to cloud! ✦');
