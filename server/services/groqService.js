@@ -14,7 +14,12 @@ async function chatCompletion(systemPrompt, userPrompt) {
     max_tokens: 2000,
     response_format: { type: 'json_object' },
   });
-  return JSON.parse(response.choices[0].message.content);
+  const aiMessage = JSON.parse(response.choices[0].message.content);
+    const tokenUsage = response.usage;
+    
+    console.log("Metadata caught: ", tokenUsage);
+
+    return { content: aiMessage, usage: tokenUsage };
 }
 
 async function chatCompletionText(systemPrompt, userPrompt) {
@@ -27,7 +32,12 @@ async function chatCompletionText(systemPrompt, userPrompt) {
     temperature: 0.2,
     max_tokens: 2000,
   });
-  return response.choices[0].message.content;
+  const aiMessage = response.choices[0].message.content;
+    const tokenUsage = response.usage;
+    
+    console.log("Text Metadata caught: ", tokenUsage);
+
+    return { content: aiMessage, usage: tokenUsage };
 }
 
 // 1. Error Explanation

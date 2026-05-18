@@ -3,7 +3,7 @@
  * Renders the AI output panel — handles loading, empty state, and all
  * response types: error explanation, fix, logic breakdown, trace, tests, complexity.
  */
-export default function AIResponsePanel({ isLoading, response, onApplyFix }) {
+export default function AIResponsePanel({ isLoading, response: rawResponse, onApplyFix }) {
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -13,7 +13,7 @@ export default function AIResponsePanel({ isLoading, response, onApplyFix }) {
     );
   }
 
-  if (!response) {
+  if (!rawResponse) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-2)' }}>
         <p style={{ fontSize: '0.85rem' }}>AI Assistant</p>
@@ -21,6 +21,10 @@ export default function AIResponsePanel({ isLoading, response, onApplyFix }) {
       </div>
     );
   }
+
+  
+  const response = rawResponse.content || rawResponse;
+  const usage = rawResponse.usage;
 
   return (
     <div>
@@ -124,6 +128,22 @@ export default function AIResponsePanel({ isLoading, response, onApplyFix }) {
         <div className="ai-card" style={{ borderColor: 'rgba(220,220,170,0.3)' }}>
           <div className="ai-card-label" style={{ color: 'var(--yellow)' }}>✦ Best Practice</div>
           <div className="ai-card-content">{response.bestPractice}</div>
+        </div>
+      )}
+      {usage && (
+        <div style={{ 
+          marginTop: '15px', 
+          paddingTop: '10px', 
+          borderTop: '1px solid rgba(255,255,255,0.1)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          fontSize: '0.7rem', 
+          color: 'var(--text-2)', 
+          fontFamily: "'JetBrains Mono', monospace" 
+        }}>
+          <span>⚡ Tokens: {usage.total_tokens || 0}</span>
+          <span>🚀 Speed: {usage.completion_time ? Math.round(usage.completion_tokens / usage.completion_time) : 0} T/s</span>
+          <span>💰 Cost: ${(usage.total_tokens * 0.0000005).toFixed(6)}</span>
         </div>
       )}
     </div>
