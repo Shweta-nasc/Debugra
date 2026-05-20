@@ -1,6 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useCallback as useReactCallback } from 'react';
-import toast from 'react-hot-toast';
 import { executeCode } from '../services/api';
 import { LANGUAGES } from '../utils/languageConfig';
 import { EXEC_STATUS, OUTPUT_TABS } from '../config/constants';
@@ -14,8 +12,9 @@ import { EXEC_STATUS, OUTPUT_TABS } from '../config/constants';
  * @param {string} stdin    - user-supplied stdin string
  * @param {boolean} isMobile
  * @param {Function} setMobileTab - to switch mobile tab to output on run
+ * @param {Object} audioFeedback - prepares and plays execution outcome sounds
  */
-export function useExecution({ language, code, stdin, isMobile, setMobileTab }) {
+export function useExecution({ language, code, stdin, isMobile, setMobileTab, audioFeedback }) {
   const [stdout, setStdout] = useState('');
   const [stderr, setStderr] = useState('');
   const [execStatus, setExecStatus] = useState(EXEC_STATUS.IDLE);
@@ -25,6 +24,7 @@ export function useExecution({ language, code, stdin, isMobile, setMobileTab }) 
 
   const run = useCallback(async () => {
     if (isRunning) return;
+    audioFeedback?.prepare?.();
     setIsRunning(true);
     setActiveOutputTab(OUTPUT_TABS.STDOUT);
     if (isMobile) setMobileTab?.('output');
@@ -44,18 +44,21 @@ export function useExecution({ language, code, stdin, isMobile, setMobileTab }) 
 
       if (result.status?.id === 3) {
         setExecStatus(EXEC_STATUS.SUCCESS);
+        audioFeedback?.playOutcome?.('success');
       } else {
         setExecStatus({ type: 'error', text: result.status?.description || 'Error' });
+        audioFeedback?.playOutcome?.('error');
         if (result.stderr) setActiveOutputTab(OUTPUT_TABS.STDERR);
       }
     } catch (err) {
       setStderr(err.message || 'Execution failed');
       setExecStatus(EXEC_STATUS.FAILED);
+      audioFeedback?.playOutcome?.('error');
       setActiveOutputTab(OUTPUT_TABS.STDERR);
     } finally {
       setIsRunning(false);
     }
-  }, [code, language, isRunning, stdin, isMobile, setMobileTab]);
+  }, [audioFeedback, code, language, isRunning, stdin, isMobile, setMobileTab]);
 
   const clear = useCallback(() => {
     setStdout('');

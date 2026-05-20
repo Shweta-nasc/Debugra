@@ -4,8 +4,9 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import Editor from '@monaco-editor/react';
 import toast from 'react-hot-toast';
+import { Settings, Volume2, VolumeX } from 'lucide-react';
 
-import { useRoom, useAI, useExecution, useEditor, useIsMobile } from '../../hooks';
+import { useRoom, useAI, useExecution, useEditor, useIsMobile, useAudioFeedback } from '../../hooks';
 import { registerSnippets } from '../../utils/snippetsConfig';
 import { LANGUAGES } from '../../utils/languageConfig';
 import { LANG_DOT_CLASS, LANG_FILE_NAMES, MOBILE_TABS, OUTPUT_TABS } from '../../config/constants';
@@ -31,9 +32,11 @@ export default function EditorPage({ user }) {
   const [showJoin, setShowJoin] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [outputWidth, setOutputWidth] = useState(420);
+  const [showSettings, setShowSettings] = useState(false);
   const resizingRef = useRef(false);
 
   const isMobile = useIsMobile();
+  const audioFeedback = useAudioFeedback();
 
   // ─── Editor Logic ──────────────────────────────────────────────────────────
   const editor = useEditor({
@@ -59,6 +62,7 @@ export default function EditorPage({ user }) {
     stdin: editor.stdinValue,
     isMobile,
     setMobileTab,
+    audioFeedback,
   });
 
   // ─── AI Logic ─────────────────────────────────────────────────────────────
@@ -220,6 +224,56 @@ export default function EditorPage({ user }) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </button>
             )}
+            <div className="audio-settings-wrap">
+              <button
+                className="toolbar-icon-btn"
+                aria-label="Open Settings"
+                aria-expanded={showSettings}
+                onClick={() => setShowSettings((open) => !open)}
+                title="Settings"
+                style={showSettings ? { background: 'var(--bg-active)', color: 'var(--accent)' } : {}}
+              >
+                <Settings size={14} />
+              </button>
+              {showSettings && (
+                <div className="audio-settings-popover" role="dialog" aria-label="Settings">
+                  <div className="audio-settings-head">
+                    <span>Settings</span>
+                    <button className="history-action-btn" aria-label="Close Settings" onClick={() => setShowSettings(false)}>
+                      <i className="bi bi-x" />
+                    </button>
+                  </div>
+                  <div className="audio-settings-row">
+                    <div className="audio-settings-label">
+                      {audioFeedback.muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                      <span>Audio feedback</span>
+                    </div>
+                    <button
+                      className={`audio-toggle ${audioFeedback.muted ? '' : 'active'}`}
+                      aria-pressed={!audioFeedback.muted}
+                      onClick={() => audioFeedback.setMuted(!audioFeedback.muted)}
+                    >
+                      {audioFeedback.muted ? 'Muted' : 'On'}
+                    </button>
+                  </div>
+                  <label className="audio-settings-slider">
+                    <span>Volume</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={audioFeedback.volume}
+                      onChange={(e) => audioFeedback.setVolume(e.target.value)}
+                    />
+                    <span>{Math.round(audioFeedback.volume * 100)}%</span>
+                  </label>
+                  <button className="audio-test-btn" onClick={audioFeedback.testSound} disabled={audioFeedback.muted}>
+                    Test chime
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <span className="kbd-hint d-none d-lg-inline">Ctrl+Enter</span>
           <button className="clear-btn d-none d-sm-block" onClick={() => { execution.clear(); ai.clearAI(); }} disabled={room.isReadOnly}>Clear</button>

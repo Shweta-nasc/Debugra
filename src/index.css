@@ -200,6 +200,105 @@ body {
 .toolbar-icon-btn:active { transform: scale(0.95); }
 .toolbar-icon-btn svg { flex-shrink: 0; }
 
+.audio-settings-wrap {
+  position: relative;
+  display: flex;
+}
+
+.audio-settings-popover {
+  position: fixed;
+  top: 86px;
+  right: 96px;
+  z-index: 60;
+  width: 240px;
+  padding: 10px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+}
+
+.audio-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: var(--text-0);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.audio-settings-row,
+.audio-settings-label,
+.audio-settings-slider {
+  display: flex;
+  align-items: center;
+}
+
+.audio-settings-row {
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.audio-settings-label {
+  gap: 6px;
+  color: var(--text-1);
+  font-size: 0.72rem;
+}
+
+.audio-toggle {
+  min-width: 58px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-1);
+  font-size: 0.68rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+
+.audio-toggle.active {
+  border-color: rgba(78,201,176,0.35);
+  background: rgba(78,201,176,0.1);
+  color: var(--green);
+}
+
+.audio-settings-slider {
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 0.68rem;
+}
+
+.audio-settings-slider input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.audio-test-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-0);
+  font-size: 0.7rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+
+.audio-test-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(0,120,212,0.08);
+}
+
+.audio-test-btn:disabled {
+  color: var(--text-2);
+  cursor: not-allowed;
+}
+
 .clear-btn {
   padding: 5px 10px; background: transparent; border: 1px solid var(--border);
   border-radius: 4px; color: var(--text-2); font-size: 0.7rem;
@@ -735,6 +834,7 @@ body {
   .toolbar { flex-wrap: wrap; height: auto; padding: 6px 8px; gap: 4px; }
   .toolbar-left, .toolbar-right { flex-wrap: wrap; }
   .toolbar-icon-btn { width: 24px; height: 24px; }
+  .audio-settings-popover { top: 84px; right: 8px; width: min(240px, 92vw); }
   .topbar { padding: 0 8px; }
   .topbar-right .room-controls { display: none; }
   .kbd-hint { display: none; }
