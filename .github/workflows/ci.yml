@@ -29,6 +29,9 @@ jobs:
       - name: Verify Frontend Production Build
         run: npm run build
 
+      - name: Run Lighthouse CI
+        run: npx @lhci/cli@0.15.x autorun
+
       - name: Install Backend Dependencies
         run: npm ci --prefix server
 
