@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const memoryProfiler = require('../services/memoryProfiler');
+const requireAdminToken = require('../middleware/requireAdminToken');
+
+router.use(requireAdminToken);
 
 /**
  * @route   GET /api/admin/memory-profile

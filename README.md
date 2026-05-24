@@ -162,7 +162,10 @@ PORT=3001
 CLIENT_URL=http://localhost:5173
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 GROQ_API_KEY=your_groq_api_key
+DEBUGRA_ADMIN_TOKEN=choose_a_long_random_admin_token
 ```
+
+`DEBUGRA_ADMIN_TOKEN` is required for `/api/admin/memory-profile` diagnostic endpoints. Send it as either `Authorization: Bearer <token>` or `x-admin-token: <token>`.
 
 ### 4. Start development servers
 
