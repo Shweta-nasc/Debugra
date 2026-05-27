@@ -1,3 +1,4 @@
+const logger = require('./utils/logger');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -46,7 +47,7 @@ function recordRateLimitEvent(req) {
     rateLimitEvents.length = rateLimitEventBufferSize;
   }
 
-  console.warn(
+  logger.warn(
     `[rate-limit] blocked ${event.method} ${event.path} from ${event.ip}`
   );
   return event;
@@ -216,7 +217,8 @@ app.use('/api/admin/memory-profile', memoryRoutes);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Debugra server running on port ${PORT}`);
-  console.log(`🔒 Security headers: HSTS=${isProd}, CSP=on, Permissions-Policy=on`);
+  logger.info(`🚀 Debugra server running on port ${PORT}`);
+  logger.info(`🔒 Security headers: HSTS=${isProd}, CSP=on, Permissions-Policy=on`);
   memoryProfiler.start();
 });
+
