@@ -120,6 +120,11 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: object-fit 0.2s ease;
+}
+.vc-video--screen {
+  object-fit: contain;
+  background: #020205;
 }
 
 .vc-video-off {
