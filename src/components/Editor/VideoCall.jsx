@@ -1,20 +1,22 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { db } from '../../services/firebase';
+import {
+  doc,
+  collection,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import './VideoCall.css';
 
 /**
- * VideoCall – a lightweight, peer-to-peer group video call widget
- * built on top of the WebRTC API.
+ * VideoCall – a premium WebRTC group video call widget
+ * built on top of Firestore as a high-performance mesh signaling grid.
  *
- * Signalling is done via the existing collaboration WebSocket channel
- * (`window.__debugraSignal`).  If no signalling channel is available the
- * component falls back to a simple copy-paste offer/answer flow so it
- * can still be used stand-alone.
- *
- * Props
- * ─────
- *  roomId   – shared identifier for the collaboration room
- *  userName – display name of the local user
- *  onClose  – callback when the user hangs up
+ * Support for HD video, screen sharing, and beautiful glassmorphism.
  */
 
 const ICE_SERVERS = [
@@ -23,7 +25,6 @@ const ICE_SERVERS = [
 ];
 
 const VideoCall = ({ roomId, userName, onClose }) => {
-  const [localStream, setLocalStream] = useState(null);
   const [peers, setPeers] = useState(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -36,19 +37,26 @@ const VideoCall = ({ roomId, userName, onClose }) => {
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
 
+  // Generate a persistent, session-unique ID for the local peer
+  const myPeerId = useRef(crypto.randomUUID().slice(0, 8)).current;
+
   // ── Acquire local media ──────────────────────────
   const startLocalStream = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        video: {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          facingMode: 'user',
+        },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       localStreamRef.current = stream;
-      setLocalStream(stream);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       setConnectionStatus('ready');
       return stream;
     } catch (err) {
+      console.error('Failed to get user media:', err);
       setError(
         err.name === 'NotAllowedError'
           ? 'Camera/microphone access was denied. Please allow access and try again.'
@@ -61,52 +69,302 @@ const VideoCall = ({ roomId, userName, onClose }) => {
 
   useEffect(() => {
     startLocalStream();
+    const currentPeers = peersRef.current;
     return () => {
+      // Cleanup tracks on unmount
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-      peersRef.current.forEach((peer) => peer.connection?.close());
+      currentPeers.forEach((peerObj) => {
+        peerObj.connection.close();
+        if (peerObj.unsubConnection) peerObj.unsubConnection();
+        if (peerObj.unsubCandidates) peerObj.unsubCandidates();
+      });
     };
   }, [startLocalStream]);
+
+  // Update Firestore presence details
+  const updatePresence = useCallback(
+    async (updates) => {
+      if (!roomId) return;
+      try {
+        const myCallRef = doc(db, 'rooms', roomId, 'calls', myPeerId);
+        await updateDoc(myCallRef, updates);
+      } catch (e) {
+        console.error('Error updating presence:', e);
+      }
+    },
+    [roomId, myPeerId]
+  );
+
+  // Setup single peer RTCPeerConnection in the full-mesh signaling grid
+  const setupPeerConnection = useCallback(
+    async (peerId, peerData) => {
+      if (peersRef.current.has(peerId)) return;
+
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const peerObj = {
+        id: peerId,
+        connection: pc,
+        unsubConnection: null,
+        unsubCandidates: null,
+      };
+      peersRef.current.set(peerId, peerObj);
+
+      // Add local tracks to this connection
+      const streamToShare = screenStreamRef.current || localStreamRef.current;
+      if (streamToShare) {
+        streamToShare.getTracks().forEach((track) => {
+          pc.addTrack(track, streamToShare);
+        });
+      }
+
+      // Track incoming remote tracks
+      pc.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        setPeers((prev) => {
+          const next = new Map(prev);
+          const p = next.get(peerId) || { id: peerId, ...peerData };
+          p.stream = remoteStream;
+          next.set(peerId, p);
+          return next;
+        });
+      };
+
+      // Handle local ICE candidates and publish them to Firestore
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const connectionId = myPeerId < peerId ? `${myPeerId}_${peerId}` : `${peerId}_${myPeerId}`;
+          const candidatesCol = collection(
+            db,
+            'rooms',
+            roomId,
+            'connections',
+            connectionId,
+            'candidates'
+          );
+          addDoc(candidatesCol, {
+            sender: myPeerId,
+            candidate: event.candidate.toJSON(),
+            createdAt: serverTimestamp(),
+          }).catch((err) => console.error('Error sending ice candidate:', err));
+        }
+      };
+
+      const connectionId = myPeerId < peerId ? `${myPeerId}_${peerId}` : `${peerId}_${myPeerId}`;
+      const connectionRef = doc(db, 'rooms', roomId, 'connections', connectionId);
+
+      // Listen to incoming ICE candidates from the other peer
+      const candidatesCol = collection(
+        db,
+        'rooms',
+        roomId,
+        'connections',
+        connectionId,
+        'candidates'
+      );
+      peerObj.unsubCandidates = onSnapshot(candidatesCol, (snap) => {
+        snap.docChanges().forEach(async (change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            if (data.sender !== myPeerId) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+              } catch (e) {
+                console.error('Error adding remote ice candidate:', e);
+              }
+            }
+          }
+        });
+      });
+
+      // Peer signaling role: lexicographical lower ID initiates the offer
+      if (myPeerId < peerId) {
+        // Offer side (Initiator)
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await setDoc(connectionRef, {
+          offer: { type: offer.type, sdp: offer.sdp },
+          initiator: myPeerId,
+          receiver: peerId,
+          createdAt: serverTimestamp(),
+        });
+
+        peerObj.unsubConnection = onSnapshot(connectionRef, async (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.answer && !pc.currentRemoteDescription) {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
+          }
+        });
+      } else {
+        // Answer side (Receiver)
+        peerObj.unsubConnection = onSnapshot(connectionRef, async (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.offer && !pc.currentLocalDescription) {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await updateDoc(connectionRef, {
+                answer: { type: answer.type, sdp: answer.sdp },
+              });
+            }
+          }
+        });
+      }
+
+      setPeers((prev) => {
+        const next = new Map(prev);
+        next.set(peerId, { id: peerId, ...peerData, stream: null });
+        return next;
+      });
+    },
+    [roomId, myPeerId]
+  );
+
+  // Connect peers and listen to room calls once stream is ready
+  useEffect(() => {
+    if (!roomId || connectionStatus !== 'ready') return;
+
+    // Publish local peer presence initial document
+    const myCallRef = doc(db, 'rooms', roomId, 'calls', myPeerId);
+    setDoc(myCallRef, {
+      id: myPeerId,
+      name: userName || 'Anonymous',
+      joinedAt: serverTimestamp(),
+      isVideoOff: false,
+      isMuted: false,
+      isScreenSharing: false,
+    }).catch((e) => console.error('Error publishing presence:', e));
+
+    // Listen to call participants
+    const callsCol = collection(db, 'rooms', roomId, 'calls');
+    const unsubCalls = onSnapshot(callsCol, async (snapshot) => {
+      const activeIds = new Set();
+      const updatedPeersData = new Map();
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.id && data.id !== myPeerId) {
+          activeIds.add(data.id);
+          updatedPeersData.set(data.id, data);
+        }
+      });
+
+      // Cleanup peers who left
+      peersRef.current.forEach((peerObj, peerId) => {
+        if (!activeIds.has(peerId)) {
+          peerObj.connection.close();
+          if (peerObj.unsubConnection) peerObj.unsubConnection();
+          if (peerObj.unsubCandidates) peerObj.unsubCandidates();
+          peersRef.current.delete(peerId);
+          setPeers((prev) => {
+            const next = new Map(prev);
+            next.delete(peerId);
+            return next;
+          });
+        }
+      });
+
+      // Initiate or update active connections
+      for (const [peerId, peerData] of updatedPeersData) {
+        if (!peersRef.current.has(peerId)) {
+          await setupPeerConnection(peerId, peerData);
+        } else {
+          // Update details (e.g., handles screenshare or mute state changes)
+          setPeers((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(peerId);
+            if (existing) {
+              next.set(peerId, { ...existing, ...peerData });
+            }
+            return next;
+          });
+        }
+      }
+    });
+
+    return () => {
+      unsubCalls();
+      deleteDoc(myCallRef).catch((e) => console.error('Error clearing presence document:', e));
+    };
+  }, [roomId, connectionStatus, userName, myPeerId, setupPeerConnection]);
+
+  // Sync active presence details (mute, video, screenshare) when state changes
+  useEffect(() => {
+    if (!roomId || connectionStatus !== 'ready') return;
+    updatePresence({
+      isMuted,
+      isVideoOff,
+      isScreenSharing,
+    });
+  }, [roomId, connectionStatus, isMuted, isVideoOff, isScreenSharing, updatePresence]);
 
   // ── Toggle controls ──────────────────────────────
   const toggleMute = () => {
     if (!localStreamRef.current) return;
-    localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = !t.enabled));
-    setIsMuted((m) => !m);
+    const nextMuted = !isMuted;
+    localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = !nextMuted));
+    setIsMuted(nextMuted);
   };
 
   const toggleVideo = () => {
     if (!localStreamRef.current) return;
-    localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = !t.enabled));
-    setIsVideoOff((v) => !v);
+    const nextVideoOff = !isVideoOff;
+    localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = !nextVideoOff));
+    setIsVideoOff(nextVideoOff);
   };
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
-      // revert to camera
+
+      // Revert track to local camera
       const camTrack = localStreamRef.current?.getVideoTracks()[0];
-      peersRef.current.forEach((peer) => {
-        const sender = peer.connection?.getSenders().find((s) => s.track?.kind === 'video');
-        if (sender && camTrack) sender.replaceTrack(camTrack);
-      });
+      if (camTrack) {
+        peersRef.current.forEach((peerObj) => {
+          const sender = peerObj.connection?.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(camTrack).catch((err) => console.error(err));
+        });
+      }
+
+      if (localVideoRef.current && localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
       setIsScreenSharing(false);
     } else {
       try {
-        const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screen = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: { ideal: 1920, max: 3840 },
+            height: { ideal: 1080, max: 2160 },
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: false,
+        });
         screenStreamRef.current = screen;
         const screenTrack = screen.getVideoTracks()[0];
-        peersRef.current.forEach((peer) => {
-          const sender = peer.connection?.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
+
+        // Replace outgoing track for all peer connections
+        peersRef.current.forEach((peerObj) => {
+          const sender = peerObj.connection?.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(screenTrack).catch((err) => console.error(err));
         });
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screen;
+        }
+
         screenTrack.onended = () => {
           toggleScreenShare();
         };
+
         setIsScreenSharing(true);
-      } catch {
-        /* user cancelled */
+      } catch (err) {
+        console.error('Error starting screen share:', err);
       }
     }
   };
@@ -114,7 +372,17 @@ const VideoCall = ({ roomId, userName, onClose }) => {
   const hangUp = () => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-    peersRef.current.forEach((peer) => peer.connection?.close());
+    localStreamRef.current = null;
+    screenStreamRef.current = null;
+
+    peersRef.current.forEach((peerObj) => {
+      peerObj.connection.close();
+      if (peerObj.unsubConnection) peerObj.unsubConnection();
+      if (peerObj.unsubCandidates) peerObj.unsubCandidates();
+    });
+    peersRef.current.clear();
+    setPeers(new Map());
+
     onClose?.();
   };
 
@@ -127,25 +395,47 @@ const VideoCall = ({ roomId, userName, onClose }) => {
             <span className="vc-room-icon">📹</span>
             <span className="vc-room-name">Room: {roomId || 'Local'}</span>
             <span className={`vc-status vc-status--${connectionStatus}`}>
-              {connectionStatus === 'ready' ? '● Connected' : connectionStatus === 'error' ? '● Error' : '○ Connecting'}
+              {connectionStatus === 'ready'
+                ? '● Connected'
+                : connectionStatus === 'error'
+                  ? '● Error'
+                  : '○ Connecting'}
             </span>
           </div>
-          <button className="vc-close-btn" onClick={hangUp} aria-label="Close video call">×</button>
+          <button className="vc-close-btn" onClick={hangUp} aria-label="Close video call">
+            ×
+          </button>
         </div>
 
         {error && (
           <div className="vc-error">
             <span>⚠️ {error}</span>
-            <button onClick={() => { setError(null); startLocalStream(); }}>Retry</button>
+            <button
+              onClick={() => {
+                setError(null);
+                startLocalStream();
+              }}
+            >
+              Retry
+            </button>
           </div>
         )}
 
         <div className="vc-grid">
-          {/* Local video */}
+          {/* Local video tile */}
           <div className="vc-tile vc-tile--local">
-            <video ref={localVideoRef} autoPlay muted playsInline className="vc-video" />
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`vc-video ${isScreenSharing ? 'vc-video--screen' : ''}`}
+            />
             {isVideoOff && <div className="vc-video-off">📷 Camera Off</div>}
-            <div className="vc-tile-label">{userName || 'You'} (You)</div>
+            <div className="vc-tile-label">
+              {userName || 'You'} (You){isMuted ? ' 🔇' : ''}
+              {isScreenSharing ? ' (Sharing)' : ''}
+            </div>
           </div>
 
           {/* Remote peer tiles */}
@@ -154,12 +444,17 @@ const VideoCall = ({ roomId, userName, onClose }) => {
               <video
                 autoPlay
                 playsInline
-                className="vc-video"
+                className={`vc-video ${peer.isScreenSharing ? 'vc-video--screen' : ''}`}
                 ref={(el) => {
                   if (el && peer.stream) el.srcObject = peer.stream;
                 }}
               />
-              <div className="vc-tile-label">{peer.name || 'Peer'}</div>
+              {peer.isVideoOff && <div className="vc-video-off">📷 Camera Off</div>}
+              <div className="vc-tile-label">
+                {peer.name || 'Peer'}
+                {peer.isMuted ? ' 🔇' : ''}
+                {peer.isScreenSharing ? ' (Sharing)' : ''}
+              </div>
             </div>
           ))}
         </div>

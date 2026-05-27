@@ -27,6 +27,7 @@ import ApiKeyModal from './ApiKeyModal';
 import CollaborationControls from './CollaborationControls';
 import EditorStatusBar from './EditorStatusBar';
 import MobileBottomNav from './MobileBottomNav';
+import VideoCall from './VideoCall';
 import { getSessionApiKey, isSecureApiKeyStored } from '../../services/secureApiKeyStore';
 
 function getApiKeyStatus() {
@@ -54,6 +55,7 @@ export default function EditorPage({ user }) {
   const [outputWidth, setOutputWidth] = useState(420);
   const [minimapSide, setMinimapSide] = useState('right');
   const [showSettings, setShowSettings] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
   const resizingRef = useRef(false);
 
   const isMobile = useIsMobile();
@@ -218,6 +220,21 @@ export default function EditorPage({ user }) {
               >
                 <span className="d-none d-sm-inline">Copy ID</span>
                 <span className="d-inline d-sm-none">ID</span>
+              </button>
+              <button
+                className="topbar-link ms-2"
+                onClick={() => setShowVideoCall(!showVideoCall)}
+                style={{
+                  background: showVideoCall ? 'rgba(239, 68, 68, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                  color: showVideoCall ? '#ff6b6b' : '#a78bfa',
+                  border: showVideoCall ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s',
+                }}
+              >
+                📹 {showVideoCall ? 'Leave Call' : 'Join Call'}
               </button>
             </>
           )}
@@ -994,6 +1011,15 @@ export default function EditorPage({ user }) {
         <ApiKeyModal
           onClose={() => setShowApiKey(false)}
           onStatusChange={() => setApiKeyStatus(getApiKeyStatus())}
+        />
+      )}
+
+      {/* Video Call Overlay */}
+      {showVideoCall && room.roomId && (
+        <VideoCall
+          roomId={room.roomId}
+          userName={user?.displayName || user?.email?.split('@')[0] || 'Guest'}
+          onClose={() => setShowVideoCall(false)}
         />
       )}
     </div>
