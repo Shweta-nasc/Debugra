@@ -166,4 +166,44 @@ Respond in JSON:
   );
 }
 
-module.exports = { explainError, fixCodeAI, explainLogicAI, generateTestsAI, visualizeAI };
+// 6. AI Code Explainer — explains a selected code snippet in plain language
+async function explainCodeSnippetAI(code, language, apiKey = '') {
+  return chatCompletion(
+    `You are an expert programming tutor. When a user highlights a snippet of code, explain what it does in simple, beginner-friendly language. Always respond in valid JSON.`,
+    `Explain this ${language} code snippet in simple terms:
+
+${code}
+
+Respond in this EXACT JSON format:
+{
+  "title": "Short 3-5 word title of what this code does",
+  "explanation": "A clear 2-4 sentence explanation a beginner would understand",
+  "concepts": ["concept1", "concept2"],
+  "tip": "One practical tip related to this code"
+}`,
+    apiKey
+  );
+}
+
+// 7. AI Code Explainer — follow-up Q&A on previously explained code
+async function askFollowUpAI(code, language, question, previousExplanation, apiKey = '') {
+  return chatCompletion(
+    `You are an expert programming tutor engaged in an interactive Q&A session. The user previously highlighted code and received an explanation. Now they have a follow-up question. Answer clearly and concisely. Always respond in valid JSON.`,
+    `The user is asking about this ${language} code:
+
+${code}
+
+Previous explanation: ${previousExplanation}
+
+User's follow-up question: ${question}
+
+Respond in this EXACT JSON format:
+{
+  "answer": "A clear, concise answer to their question",
+  "codeExample": "Optional: a small code example if it helps clarify (or empty string if not needed)"
+}`,
+    apiKey
+  );
+}
+
+module.exports = { explainError, fixCodeAI, explainLogicAI, generateTestsAI, visualizeAI, explainCodeSnippetAI, askFollowUpAI };
