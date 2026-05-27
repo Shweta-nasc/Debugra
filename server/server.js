@@ -83,14 +83,16 @@ const defaultDevOrigins = [
   'https://debugra.tech',
   'https://www.debugra.tech'
 ];
-const allowedOrigins = (
+const extraOrigins = (
   process.env.CORS_ORIGINS ||
   process.env.CLIENT_URL ||
-  defaultDevOrigins.join(',')
+  ""
 )
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultDevOrigins, ...extraOrigins])];
 
 // ──────────────────────────────────────────────
 // Security Headers (all six required headers)
