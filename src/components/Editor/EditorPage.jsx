@@ -43,6 +43,7 @@ export default function EditorPage({ user }) {
   const [showJoin, setShowJoin] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [outputWidth, setOutputWidth] = useState(420);
+  const [minimapSide, setMinimapSide] = useState('right');
   const [showSettings, setShowSettings] = useState(false);
   const resizingRef = useRef(false);
 
@@ -267,6 +268,25 @@ export default function EditorPage({ user }) {
             <span>{editor.fontSize}px</span>
             <button onClick={editor.increaseFontSize}>+</button>
           </div>
+          <div className="minimap-side-ctrl d-none d-md-flex align-items-center gap-1" aria-label="Minimap position">
+            <span>Minimap</span>
+            <button
+              type="button"
+              className={minimapSide === 'left' ? 'active' : ''}
+              aria-pressed={minimapSide === 'left'}
+              onClick={() => setMinimapSide('left')}
+            >
+              Left
+            </button>
+            <button
+              type="button"
+              className={minimapSide === 'right' ? 'active' : ''}
+              aria-pressed={minimapSide === 'right'}
+              onClick={() => setMinimapSide('right')}
+            >
+              Right
+            </button>
+          </div>
         </div>
         <div className="toolbar-right d-flex align-items-center gap-2">
           <div className="d-none d-md-flex align-items-center gap-2">
@@ -424,7 +444,12 @@ export default function EditorPage({ user }) {
                 readOnly: room.isReadOnly,
                 fontSize: editor.fontSize,
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                minimap: { enabled: false },
+                minimap: {
+                  enabled: true,
+                  side: minimapSide,
+                  showSlider: 'always',
+                  renderCharacters: false,
+                },
                 padding: { top: 12 },
                 scrollBeyondLastLine: false,
                 lineNumbers: 'on',

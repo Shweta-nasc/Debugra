@@ -160,6 +160,40 @@ body {
 }
 .font-size-ctrl button:hover { background: var(--bg-3); color: var(--text-0); }
 
+.minimap-side-ctrl {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 0.68rem;
+  padding: 2px;
+}
+.minimap-side-ctrl span {
+  padding: 0 6px;
+  color: var(--text-1);
+  font-weight: 600;
+}
+.minimap-side-ctrl button {
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  transition: all 0.15s ease;
+}
+.minimap-side-ctrl button:hover {
+  color: var(--text-0);
+  background: var(--bg-3);
+}
+.minimap-side-ctrl button.active {
+  color: #ffffff;
+  background: var(--accent);
+}
+
 .run-btn {
   display: flex; align-items: center; gap: 5px; padding: 5px 16px;
   background: #2ea043; border: none; border-radius: 4px; color: #fff;
