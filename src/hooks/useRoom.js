@@ -47,12 +47,11 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
   const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
 
   // ─── Derived permissions ────────────────────────────────────────────────────
-  const isAuthor = roomData?.createdBy === user?.uid;
-  const isAllowedEditor = roomData?.allowedEditors?.includes(user?.uid);
-  const isCurrentEditor = roomData?.currentEditor === user?.uid;
-  const isReadOnly = roomId ? !isCurrentEditor : false;
-  const currentEditorName =
-    activeUsers.find((u) => u.uid === roomData?.currentEditor)?.displayName || 'None';
+  const myRole = roomData?.roles?.[user?.uid] || (roomData?.createdBy === user?.uid ? 'host' : 'viewer');
+  const isHost = myRole === 'host';
+  const isEditor = myRole === 'editor' || isHost;
+  const isReadOnly = !isEditor;
+  const currentEditorName = isEditor ? (user?.displayName || 'Editor') : 'Viewer';
 
   // ─── Live sync from Firestore ───────────────────────────────────────────────
   useEffect(() => {
@@ -69,10 +68,10 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     return unsub;
   }, [roomId, user]);
 
-  // ─── Push local changes (debounced, author-gated) ──────────────────────────
+  // ─── Push local changes (debounced, editor-gated) ──────────────────────────
   useEffect(() => {
     if (!roomId || !user || !roomData) return;
-    if (roomData.currentEditor !== user.uid) return;
+    if (!isEditor) return;
     const timer = setTimeout(() => {
       updateDoc(doc(db, 'rooms', roomId), {
         code,
@@ -83,7 +82,7 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
       }).catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
-  }, [code, language, stdinValue, roomId, user, roomData?.currentEditor]);
+  }, [code, language, stdinValue, roomId, user, isEditor]);
 
   // ─── Sync active file (language) for presence ───────────────────────────────
   useEffect(() => {
@@ -128,9 +127,7 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
         code,
         language,
         activeUsers: [{ uid: user.uid, displayName }],
-        allowedEditors: [user.uid],
-        currentEditor: user.uid,
-        editRequests: [],
+        roles: { [user.uid]: 'host' },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -191,10 +188,16 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
         }
 
         const displayName = user.displayName || user.email?.split('@')[0] || 'Guest';
+        const newRoles = { ...(data.roles || {}) };
+        if (!newRoles[user.uid]) newRoles[user.uid] = 'viewer';
+
         if (!currentUsers.some((u) => u.uid === user.uid)) {
           await updateDoc(roomRef, {
             activeUsers: [...currentUsers, { uid: user.uid, displayName }],
+            roles: newRoles,
           });
+        } else if (!data.roles || !data.roles[user.uid]) {
+          await updateDoc(roomRef, { roles: newRoles });
         }
         setRoomId(newRoomId);
         localStorage.setItem('debugra_roomId', newRoomId);
@@ -221,68 +224,13 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     [user]
   );
 
-  // ─── Access control ─────────────────────────────────────────────────────────
-  const requestAccess = useCallback(async () => {
-    if (!user || !roomId || !roomData) return;
-    if (roomData.editRequests?.some((r) => r.uid === user.uid)) {
-      toast.error('Access request already sent.');
-      return;
-    }
-    const newRequests = [
-      ...(roomData.editRequests || []),
-      { uid: user.uid, displayName: user.displayName },
-    ];
-    await updateDoc(doc(db, 'rooms', roomId), { editRequests: newRequests });
-    toast.success('Requested edit access from the author.');
-  }, [user, roomId, roomData]);
-
-  const approveAccess = useCallback(
-    async (requestUid) => {
-      if (!roomId || !roomData || !isAuthor) return;
-      const newAllowed = [...new Set([...(roomData.allowedEditors || []), requestUid])];
-      const newRequests = (roomData.editRequests || []).filter((r) => r.uid !== requestUid);
-      await updateDoc(doc(db, 'rooms', roomId), {
-        allowedEditors: newAllowed,
-        editRequests: newRequests,
-      });
-      toast.success('Access granted.');
-    },
-    [roomId, roomData, isAuthor]
-  );
-
-  const denyAccess = useCallback(
-    async (requestUid) => {
-      if (!roomId || !roomData || !isAuthor) return;
-      const newRequests = (roomData.editRequests || []).filter((r) => r.uid !== requestUid);
-      await updateDoc(doc(db, 'rooms', roomId), { editRequests: newRequests });
-      toast('Access denied.');
-    },
-    [roomId, roomData, isAuthor]
-  );
-
-  const revokeAccess = useCallback(
-    async (revokeUid) => {
-      if (!roomId || !roomData || !isAuthor) return;
-      const newAllowed = (roomData.allowedEditors || []).filter((uid) => uid !== revokeUid);
-      const updates = { allowedEditors: newAllowed };
-      if (roomData.currentEditor === revokeUid) updates.currentEditor = null;
-      await updateDoc(doc(db, 'rooms', roomId), updates);
-      toast('Access revoked.');
-    },
-    [roomId, roomData, isAuthor]
-  );
-
-  const takeControl = useCallback(async () => {
-    if (!user || !roomId || !isAllowedEditor) return;
-    await updateDoc(doc(db, 'rooms', roomId), { currentEditor: user.uid });
-    toast.success('You are now editing.');
-  }, [user, roomId, isAllowedEditor]);
-
-  const releaseControl = useCallback(async () => {
-    if (!user || !roomId || !isCurrentEditor) return;
-    await updateDoc(doc(db, 'rooms', roomId), { currentEditor: null });
-    toast.success('You released the editor lock.');
-  }, [user, roomId, isCurrentEditor]);
+  // (Legacy access control methods removed for simpler role system)
+  const requestAccess = useCallback(() => {}, []);
+  const approveAccess = useCallback(() => {}, []);
+  const denyAccess = useCallback(() => {}, []);
+  const revokeAccess = useCallback(() => {}, []);
+  const takeControl = useCallback(() => {}, []);
+  const releaseControl = useCallback(() => {}, []);
 
   const leaveRoom = useCallback(async () => {
     if (!roomId) return;
@@ -309,9 +257,8 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     setShowOnlineDropdown,
     showRequestsDropdown,
     setShowRequestsDropdown,
-    isAuthor,
-    isAllowedEditor,
-    isCurrentEditor,
+    isHost,
+    isEditor,
     isReadOnly,
     currentEditorName,
     createRoom,

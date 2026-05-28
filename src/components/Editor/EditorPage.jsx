@@ -25,6 +25,7 @@ import HistoryPanel from './HistoryPanel';
 import AIResponsePanel from './AIResponsePanel';
 import ApiKeyModal from './ApiKeyModal';
 import CollaborationControls from './CollaborationControls';
+import AudioChannel from './AudioChannel';
 import EditorStatusBar from './EditorStatusBar';
 import MobileBottomNav from './MobileBottomNav';
 import { getSessionApiKey, isSecureApiKeyStored } from '../../services/secureApiKeyStore';
@@ -670,7 +671,12 @@ export default function EditorPage({ user }) {
                 ×
               </button>
             </div>
-            {room.roomId && <CollaborationControls room={room} user={user} />}
+            {room.roomId && (
+              <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                <AudioChannel room={room} user={user} />
+                <CollaborationControls room={room} user={user} />
+              </div>
+            )}
           </div>
 
           {/* Monaco Editor */}
