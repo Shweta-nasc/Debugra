@@ -41,6 +41,7 @@ export default function EditorPage({ user }) {
   const editorRef = useRef(null);
 
   // ─── UI State ──────────────────────────────────────────────────────────────
+  const [copied, setCopied] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [showHistory, setShowHistory] = useState(false);
@@ -62,6 +63,25 @@ export default function EditorPage({ user }) {
   const audioFeedback = useAudioFeedback();
 
   // ─── Editor Logic ──────────────────────────────────────────────────────────
+  const handleCopyOutput = async () => {
+  if (!execution.stdout) return;
+
+      try {
+        await navigator.clipboard.writeText(execution.stdout);
+
+        setCopied(true);
+
+        toast.success('Output copied!');
+
+        setTimeout(() => {
+          setCopied(false);
+        }, 2000);
+
+      } catch (err) {
+        toast.error('Failed to copy output');
+      }
+    };
+
   const editor = useEditor({
     user,
     onNeedAuth: () => {
@@ -890,12 +910,40 @@ export default function EditorPage({ user }) {
           }
         >
           <div className="output-tabs">
-            <button
-              className={`output-tab ${execution.activeOutputTab === OUTPUT_TABS.STDOUT ? 'active' : ''}`}
-              onClick={() => execution.setActiveOutputTab(OUTPUT_TABS.STDOUT)}
+            {/* copy */}
+             <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
             >
-              Output
-            </button>
+              <button
+                className={`output-tab ${
+                  execution.activeOutputTab === OUTPUT_TABS.STDOUT ? 'active' : ''
+                }`}
+                onClick={() => execution.setActiveOutputTab(OUTPUT_TABS.STDOUT)}
+              >
+                Output
+              </button>
+
+              {execution.stdout && (
+                <button
+                  onClick={handleCopyOutput}
+                  title="Copy Output"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#aaa',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {copied ? '✓' : '📋'}
+                </button>
+              )}
+             </div>
             {execution.stderr && (
               <button
                 className={`output-tab ${execution.activeOutputTab === OUTPUT_TABS.STDERR ? 'active' : ''}`}
