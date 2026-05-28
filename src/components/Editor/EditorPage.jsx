@@ -111,6 +111,39 @@ export default function EditorPage({ user }) {
       window.__MONACO_SNIPPETS_REGISTERED__ = true;
     }
 
+    monaco.editor.defineTheme('debugra-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6a9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '569cd6' },
+        { token: 'string', foreground: 'ce9178' },
+        { token: 'number', foreground: 'b5cea8' },
+        { token: 'type', foreground: '4ec9b0' },
+        { token: 'function', foreground: 'dcdcaa' },
+        { token: 'operator', foreground: 'd4d4d4' },
+      ],
+      colors: {
+        'editor.background': '#1e1e1e',
+        'editor.foreground': '#d4d4d4',
+        'editor.lineHighlightBackground': '#2a2d2e',
+        'editor.selectionBackground': '#264f78',
+        'editorCursor.foreground': '#d4d4d4',
+        'editorLineNumber.foreground': '#858585',
+        'editorLineNumber.activeForeground': '#c6c6c6',
+        'editorIndentGuide.background1': '#3b3b3b',
+        'editorIndentGuide.activeBackground1': '#4ec9b0',
+        'editorBracketHighlight.foreground1': '#4ec9b0',
+        'editorBracketHighlight.foreground2': '#dcdcaa',
+        'editorBracketHighlight.foreground3': '#ce9178',
+        'editorBracketHighlight.foreground4': '#569cd6',
+        'editorBracketHighlight.foreground5': '#c586c0',
+        'editorBracketHighlight.foreground6': '#b5cea8',
+        'editorBracketMatch.background': '#4ec9b033',
+        'editorBracketMatch.border': '#4ec9b0',
+      },
+    });
+
     monaco.editor.defineTheme('dracula', {
       base: 'vs-dark',
       inherit: true,
@@ -132,6 +165,15 @@ export default function EditorPage({ user }) {
         'editorCursor.foreground': '#f8f8f2',
         'editorLineNumber.foreground': '#6272a4',
         'editorLineNumber.activeForeground': '#f8f8f2',
+        'editorIndentGuide.background1': '#44475a80',
+        'editorIndentGuide.activeBackground1': '#8be9fd',
+        'editorBracketHighlight.foreground1': '#8be9fd',
+        'editorBracketHighlight.foreground2': '#50fa7b',
+        'editorBracketHighlight.foreground3': '#f1fa8c',
+        'editorBracketHighlight.foreground4': '#ff79c6',
+        'editorBracketHighlight.foreground5': '#bd93f9',
+        'editorBracketHighlight.foreground6': '#ffb86c',
+        'editorBracketMatch.background': '#bd93f933',
         'editorBracketMatch.border': '#bd93f9',
       },
     });
@@ -157,6 +199,15 @@ export default function EditorPage({ user }) {
         'editorCursor.foreground': '#f8f8f2',
         'editorLineNumber.foreground': '#75715e',
         'editorLineNumber.activeForeground': '#f8f8f2',
+        'editorIndentGuide.background1': '#49483e',
+        'editorIndentGuide.activeBackground1': '#66d9ef',
+        'editorBracketHighlight.foreground1': '#66d9ef',
+        'editorBracketHighlight.foreground2': '#a6e22e',
+        'editorBracketHighlight.foreground3': '#e6db74',
+        'editorBracketHighlight.foreground4': '#f92672',
+        'editorBracketHighlight.foreground5': '#ae81ff',
+        'editorBracketHighlight.foreground6': '#fd971f',
+        'editorBracketMatch.background': '#a6e22e33',
         'editorBracketMatch.border': '#a6e22e',
       },
     });
@@ -760,8 +811,16 @@ export default function EditorPage({ user }) {
                 smoothScrolling: true,
                 cursorBlinking: room.isReadOnly ? 'solid' : 'smooth',
                 cursorSmoothCaretAnimation: 'on',
+                matchBrackets: 'always',
+                renderIndentGuides: true,
                 bracketPairColorization: { enabled: true },
-                guides: { bracketPairs: true },
+                guides: {
+                  indentation: true,
+                  highlightActiveIndentation: 'always',
+                  bracketPairs: true,
+                  bracketPairsHorizontal: true,
+                  highlightActiveBracketPair: true,
+                },
                 suggestOnTriggerCharacters: true,
                 quickSuggestions: true,
                 formatOnPaste: true,
@@ -924,6 +983,7 @@ export default function EditorPage({ user }) {
               <AIResponsePanel
                 isLoading={ai.isAILoading}
                 response={ai.aiResponse}
+                language={editor.language}
                 onApplyFix={(code) => {
                   editor.setCode(code);
                   toast.success('Solution applied!');
