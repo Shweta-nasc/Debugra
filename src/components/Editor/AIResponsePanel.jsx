@@ -48,6 +48,12 @@ export default function AIResponsePanel({ isLoading, response: rawResponse, onAp
 
   const response = rawResponse.content || rawResponse;
   const usage = rawResponse.usage;
+  const severityStyles = {
+    High: { color: '#ff6b6b', border: 'rgba(255,107,107,0.35)', bg: 'rgba(255,107,107,0.08)' },
+    Medium: { color: '#ffd166', border: 'rgba(255,209,102,0.35)', bg: 'rgba(255,209,102,0.08)' },
+    Low: { color: '#4ec9b0', border: 'rgba(78,201,176,0.35)', bg: 'rgba(78,201,176,0.08)' },
+  };
+  const auditFindings = Array.isArray(response.findings) ? response.findings : null;
   const langName = language ? (LANGUAGES[language]?.name || language) : '';
 
   const handleDownloadMarkdown = () => {
@@ -347,6 +353,98 @@ export default function AIResponsePanel({ isLoading, response: rawResponse, onAp
             </div>
           </div>
         ))}
+      {auditFindings && (
+        <div style={{ marginBottom: '10px' }}>
+          <div
+            className="ai-card-label"
+            style={{ color: 'var(--accent)', marginBottom: '8px', fontSize: '0.7rem' }}
+          >
+            Security Audit
+            {typeof response.riskScore === 'number' && (
+              <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontWeight: 500 }}>
+                Risk {response.riskScore}/100
+              </span>
+            )}
+          </div>
+          {auditFindings.length === 0 ? (
+            <div className="ai-card success">
+              <div className="ai-card-label">No Findings</div>
+              <div className="ai-card-content">
+                No meaningful vulnerabilities were detected in this snippet.
+              </div>
+            </div>
+          ) : (
+            auditFindings.map((finding, i) => {
+              const severity = finding.severity || 'Low';
+              const style = severityStyles[severity] || severityStyles.Low;
+              return (
+                <div
+                  key={`${severity}-${finding.title || i}`}
+                  className="ai-card"
+                  style={{
+                    borderColor: style.border,
+                    background: style.bg,
+                    borderLeftColor: style.color,
+                    borderLeftWidth: '3px',
+                  }}
+                >
+                  <div
+                    className="ai-card-label d-flex align-items-center justify-content-between"
+                    style={{ color: style.color }}
+                  >
+                    <span>{finding.title || `Finding ${i + 1}`}</span>
+                    <span
+                      style={{
+                        border: `1px solid ${style.border}`,
+                        borderRadius: '999px',
+                        padding: '1px 7px',
+                        fontSize: '0.62rem',
+                      }}
+                    >
+                      {severity}
+                    </span>
+                  </div>
+                  {finding.explanation && (
+                    <div className="ai-card-content">{finding.explanation}</div>
+                  )}
+                  {finding.evidence && (
+                    <div className="ai-card-content" style={{ marginTop: '6px' }}>
+                      <strong style={{ color: 'var(--text-0)' }}>Evidence:</strong>{' '}
+                      {finding.evidence}
+                    </div>
+                  )}
+                  {finding.suggestion && (
+                    <div className="ai-card-content" style={{ marginTop: '6px' }}>
+                      <strong style={{ color: 'var(--text-0)' }}>Fix:</strong>{' '}
+                      {finding.suggestion}
+                    </div>
+                  )}
+                  {finding.refactor && (
+                    <div className="ai-card-content" style={{ marginTop: '6px' }}>
+                      <strong style={{ color: 'var(--text-0)' }}>Refactor:</strong>{' '}
+                      {finding.refactor}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+      {Array.isArray(response.remediationSteps) && response.remediationSteps.length > 0 && (
+        <div className="ai-card" style={{ borderColor: 'rgba(86,156,214,0.3)' }}>
+          <div className="ai-card-label" style={{ color: 'var(--accent)' }}>
+            Remediation Steps
+          </div>
+          <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
+            {response.remediationSteps.map((step, i) => (
+              <li key={`${step}-${i}`} className="ai-card-content" style={{ marginBottom: '4px' }}>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       {(response.complexity || response.timeComplexity) && (
         <div className="ai-card info">
           <div className="ai-card-label">Complexity</div>
