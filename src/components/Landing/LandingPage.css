@@ -10,7 +10,7 @@
   --border-hover: rgba(255, 255, 255, 0.14);
   --text-hi: #f4f4f5;
   --text-mid: #a1a1aa;
-  --text-lo: #52525b;
+  --text-lo: #888888;
 }
 
 /* ─── Kill every glow blob — no exceptions ───────────────────────── */

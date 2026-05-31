@@ -309,7 +309,7 @@ export default function LandingPage() {
           <span
             style={{
               fontSize: '0.6rem',
-              color: '#6a6a6a',
+              color: '#888888',
               fontFamily: 'JetBrains Mono, monospace',
               marginLeft: '4px',
               paddingBottom: '1px',
